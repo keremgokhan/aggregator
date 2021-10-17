@@ -12,15 +12,32 @@ import javax.annotation.PostConstruct;
 @RestController
 public class AggregationController {
     private ApiClient apiClient;
+    private SimpleAggregator aggregator;
 
     @PostConstruct
     public void init() {
-        this.apiClient = new ApiClient();
+        this.setApiClient(new ApiClient());
+        this.setAggregator(new SimpleAggregator(this.getApiClient()));
+    }
+
+    public ApiClient getApiClient() {
+        return apiClient;
+    }
+
+    public void setApiClient(ApiClient apiClient) {
+        this.apiClient = apiClient;
+    }
+
+    public SimpleAggregator getAggregator() {
+        return aggregator;
+    }
+
+    public void setAggregator(SimpleAggregator aggregator) {
+        this.aggregator = aggregator;
     }
 
     @GetMapping("/aggregation")
     AggregatedResults aggregation(@RequestParam String[] pricing, @RequestParam String[] track, @RequestParam String[] shipments) {
-        SimpleAggregator aggregator = new SimpleAggregator(this.apiClient);
-        return aggregator.aggregate(pricing, track, shipments);
+        return this.getAggregator().aggregate(pricing, track, shipments);
     }
 }

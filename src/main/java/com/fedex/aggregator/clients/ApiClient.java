@@ -1,6 +1,9 @@
 package com.fedex.aggregator.clients;
 
 import com.fedex.aggregator.clients.exceptions.ServiceException;
+import com.fedex.aggregator.models.Prices;
+import com.fedex.aggregator.models.Shipments;
+import com.fedex.aggregator.models.TrackingStatuses;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
@@ -13,18 +16,14 @@ import reactor.util.retry.Retry;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 public class ApiClient {
-    private final WebClient client;
-
     public static final String DEFAULT_HOST = "http://127.0.0.1";
     public static final String DEFAULT_PORT = "8080";
-
     public static final int RETRY_MAX_ATTEMPTS = 2;
     public static final int RETRY_IN_MILLISECONDS = 500;
+    private final WebClient client;
 
     public ApiClient() {
         this(DEFAULT_HOST, DEFAULT_PORT, WebClient.create(DEFAULT_HOST + ":" + DEFAULT_PORT));
@@ -32,6 +31,18 @@ public class ApiClient {
 
     public ApiClient(String host, String port, WebClient client) {
         this.client = client;
+    }
+
+    public Mono<TrackingStatuses> getTrackingStatusesMono(List<String> ids) {
+        return this.get("/track", ids, TrackingStatuses.class);
+    }
+
+    public Mono<Prices> getPricesMono(List<String> ids) {
+        return this.get("/pricing", ids, Prices.class);
+    }
+
+    public Mono<Shipments> getShipmentsMono(List<String> ids) {
+        return this.get("/shipments", ids, Shipments.class);
     }
 
     public <T> Mono<T> get(String uri, List<String> queryParams, Class<T> responseType) {
