@@ -21,8 +21,8 @@ import java.util.List;
 public class ApiClient {
     public static final String DEFAULT_HOST = "http://127.0.0.1";
     public static final String DEFAULT_PORT = "8080";
-    public static final int RETRY_MAX_ATTEMPTS = 2;
-    public static final int RETRY_IN_MILLISECONDS = 500;
+    public static final int RETRY_MAX_ATTEMPTS = 3;
+    public static final int RETRY_IN_MILLISECONDS = 100;
     private final WebClient client;
 
     public ApiClient() {
@@ -45,7 +45,7 @@ public class ApiClient {
         return this.get("/shipments", ids, Shipments.class);
     }
 
-    public <T> Mono<T> get(String uri, List<String> queryParams, Class<T> responseType) {
+    private <T> Mono<T> get(String uri, List<String> queryParams, Class<T> responseType) {
         UriSpec<RequestBodySpec> uriSpec = client.method(HttpMethod.GET);
         RequestBodySpec bodySpec = uriSpec.uri(uriBuilder -> uriBuilder.path(uri).queryParam("q", queryParams).build())
                 .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
@@ -64,7 +64,7 @@ public class ApiClient {
                         .flatMap(Mono::error);
             }
         });
-        monoResponse.retryWhen(Retry.backoff(RETRY_MAX_ATTEMPTS, Duration.ofMillis(RETRY_IN_MILLISECONDS))
+        monoResponse.retryWhen(Retry.fixedDelay(RETRY_MAX_ATTEMPTS, Duration.ofMillis(RETRY_IN_MILLISECONDS))
                 .filter(throwable -> throwable instanceof ServiceException));
 
         return monoResponse;
