@@ -2,41 +2,48 @@ package com.fedex.aggregator.queues;
 
 import org.springframework.data.redis.core.SetOperations;
 
-import javax.annotation.Resource;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
 public class RequestsQueue {
+    private SetOperations<String, Object> setOperations;
 
-    @Resource(name="redisTemplate")
-    private final SetOperations<String,String> setOperations;
-    private final String queueName;
     public static final int MAX_REQUEST_QUEUE_SIZE = 5;
 
-    public RequestsQueue(SetOperations<String, String> setOperations, String queueName) {
+    public enum name {
+        PRICING_REQUESTS("pricing"),
+        TRACK_REQUESTS("track"),
+        SHIPMENTS_REQUESTS("shipments");
+
+        name(String name) {
+        }
+    }
+
+    public RequestsQueue() {
+    }
+
+    public RequestsQueue(SetOperations<String, Object> setOperations) {
         this.setOperations = setOperations;
-        this.queueName = queueName;
     }
 
-    public void storeRequest(String countryCode) {
-        this.setOperations.add(this.queueName, countryCode);
+    public void storeRequest(name queueName, String id) {
+        this.setOperations.add(queueName.toString(), id);
     }
 
-    public void storeRequests(String...countryCodes) {
-        this.setOperations.add(this.queueName, countryCodes);
+    public void storeRequests(name queueName, String...ids) {
+        this.setOperations.add(queueName.toString(), ids);
     }
 
-    public int getQueueSize() {
-        Long size = this.setOperations.size(this.queueName);
+    public int getQueueSize(name queueName) {
+        Long size = this.setOperations.size(queueName.toString());
         return size == null ? 0 : size.intValue();
     }
 
-    public Set<String> getCurrentItems() {
-        return this.setOperations.members(this.queueName);
+    public Set<Object> getCurrentItems(name queueName) {
+        return this.setOperations.members(queueName.toString());
     }
 
-    public List<String> removeItems(int count) {
-        return this.setOperations.pop(this.queueName, count);
+    public List<Object> removeItems(name queueName, int count) {
+        return this.setOperations.pop(queueName.toString(), count);
     }
 }
