@@ -2,11 +2,13 @@ package com.fedex.aggregator.controllers;
 
 import com.fedex.aggregator.aggregators.Aggregator;
 import com.fedex.aggregator.aggregators.QueueAggregator;
+import com.fedex.aggregator.aggregators.SimpleAggregator;
 import com.fedex.aggregator.clients.ApiClient;
 import com.fedex.aggregator.models.AggregatedResults;
 import com.fedex.aggregator.queues.RequestsQueue;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.SetOperations;
+import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -19,6 +21,7 @@ public class AggregationController {
     private ApiClient apiClient;
     private RequestsQueue requestsQueue;
     private Aggregator aggregator;
+    private Aggregator simpleAggregator;
 
     @Resource(name = "redisTemplate")
     private SetOperations<String, String> setOperations;
@@ -31,6 +34,7 @@ public class AggregationController {
         this.setApiClient(new ApiClient());
         this.setRequestsQueue(new RequestsQueue(setOperations));
         this.setAggregator(new QueueAggregator(this.getRequestsQueue(), this.getApiClient(), publisherOperations));
+        this.setSimpleAggregator(new SimpleAggregator(this.getApiClient()));
     }
 
     public ApiClient getApiClient() {
@@ -49,6 +53,14 @@ public class AggregationController {
         this.aggregator = aggregator;
     }
 
+    public Aggregator getSimpleAggregator() {
+        return simpleAggregator;
+    }
+
+    public void setSimpleAggregator(Aggregator simpleAggregator) {
+        this.simpleAggregator = simpleAggregator;
+    }
+
     public RequestsQueue getRequestsQueue() {
         return requestsQueue;
     }
@@ -60,5 +72,10 @@ public class AggregationController {
     @GetMapping("/aggregation")
     AggregatedResults aggregation(@RequestParam String[] pricing, @RequestParam String[] track, @RequestParam String[] shipments) {
         return this.getAggregator().aggregate(pricing, track, shipments);
+    }
+
+    @GetMapping("/aggregation/simple")
+    AggregatedResults simpleAggregation(@RequestParam String[] pricing, @RequestParam String[] track, @RequestParam String[] shipments) {
+        return this.getSimpleAggregator().aggregate(pricing, track, shipments);
     }
 }

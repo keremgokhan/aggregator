@@ -1,11 +1,17 @@
 package com.fedex.aggregator.queues;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.SetOperations;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
 
 public class RequestsQueue {
+    private final Logger logger = LoggerFactory.getLogger(RequestsQueue.class);
+
     public static final int MAX_REQUEST_QUEUE_SIZE = 5;
     private final SetOperations<String, String> setOperations;
 
@@ -13,8 +19,20 @@ public class RequestsQueue {
         this.setOperations = setOperations;
     }
 
+    public static HashMap<String, Long> lastUpdated = new HashMap<>();
+
+    public Long getLastUpdated(name queueName) {
+        return lastUpdated.get(queueName.value);
+    }
+
+    public void clearLastUpdated(name queueName) {
+        lastUpdated.put(queueName.value, null);
+    }
+
     public void storeRequest(name queueName, String id) {
+        logger.info("Queue name: " + queueName.value + ", value to push: " + id);
         this.setOperations.add(queueName.value, id);
+        lastUpdated.put(queueName.value, System.currentTimeMillis());
     }
 
     public void storeRequests(name queueName, String... ids) {
@@ -34,10 +52,18 @@ public class RequestsQueue {
         return this.setOperations.pop(queueName.value, count);
     }
 
+    public List<String> removeAllItems(name queueName) {
+        Long size = this.setOperations.size(queueName.value);
+        if (size == null) {
+            return new ArrayList<>();
+        }
+        return this.setOperations.pop(queueName.value, size);
+    }
+
     public enum name {
-        PRICING_REQUESTS("pricing"),
-        TRACK_REQUESTS("track"),
-        SHIPMENTS_REQUESTS("shipments");
+        PRICING_REQUESTS("qpricing"),
+        TRACK_REQUESTS("qtrack"),
+        SHIPMENTS_REQUESTS("qshipments");
 
         public final String value;
 

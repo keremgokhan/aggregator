@@ -6,12 +6,17 @@ import com.fedex.aggregator.models.Prices;
 import com.fedex.aggregator.models.Shipments;
 import com.fedex.aggregator.models.TrackingStatuses;
 import com.fedex.aggregator.queues.RequestsQueue;
-import com.fedex.aggregator.queues.ResponsePublisher;
+import com.fedex.aggregator.queues.publishers.ResponsePublisher;
+import com.fedex.aggregator.queues.subscribers.PricesResponseSubscriber;
+import com.fedex.aggregator.queues.subscribers.ShipmentsResponseSubscriber;
+import com.fedex.aggregator.queues.subscribers.TrackingResponseSubscriber;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import reactor.core.publisher.Mono;
 
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -28,7 +33,7 @@ public class QueueAggregator implements Aggregator {
         this.redisTemplate = redisTemplate;
     }
 
-    private void aggregateRequests(RequestsQueue.name queueName, String[] idsArray) {
+    public void aggregateRequests(RequestsQueue.name queueName, String[] idsArray) {
         Set<String> ids = Set.of(idsArray);
         if (ids.size() == 0) {
             return;
@@ -41,15 +46,14 @@ public class QueueAggregator implements Aggregator {
             if (this.requestsQueue.getQueueSize(queueName) >= RequestsQueue.MAX_REQUEST_QUEUE_SIZE) {
                 List<String> idsToRequest = this.requestsQueue.removeItems(queueName, RequestsQueue.MAX_REQUEST_QUEUE_SIZE);
                 logger.info("Queue size after removing items from " + queueName + ": " + this.requestsQueue.getQueueSize(queueName));
-                Thread newThread = new Thread(() -> {
+                new Thread(() -> {
                     makeRequestAndPublishResponse(queueName, idsToRequest);
-                });
-                newThread.start();
+                }).start();
             }
         }
     }
 
-    private void makeRequestAndPublishResponse(RequestsQueue.name queueName, List<String> ids) {
+    public void makeRequestAndPublishResponse(RequestsQueue.name queueName, List<String> ids) {
         if (queueName == RequestsQueue.name.PRICING_REQUESTS) {
             Mono<Prices> pricesMono = this.apiClient.getPricesMono(ids);
             blockMonoAndPublishResponse(ResponsePublisher.topic.PRICING_RESPONSES, pricesMono);
@@ -79,6 +83,80 @@ public class QueueAggregator implements Aggregator {
             aggregateRequests(RequestsQueue.name.SHIPMENTS_REQUESTS, shipments);
         }).start();
 
-        return new AggregatedResults();
+        AggregatedResults aggregatedResults = new AggregatedResults();
+        aggregatedResults.setPricing(new Prices());
+        aggregatedResults.setShipments(new Shipments());
+        aggregatedResults.setTrack(new TrackingStatuses());
+
+        Set<String> pricingRequests = new HashSet<>(Set.of(pricing));
+        Thread pricingResultsThread = new Thread(() -> {
+            while (!pricingRequests.isEmpty()) {
+                try {
+                    List<String> toRemove = new ArrayList<>();
+                    for(String cc : pricingRequests) {
+                        if (PricesResponseSubscriber.prices.containsKey(cc)) {
+                            toRemove.add(cc);
+                            aggregatedResults.getPricing().put(cc, PricesResponseSubscriber.prices.get(cc));
+                        }
+                    }
+                    toRemove.forEach(pricingRequests::remove);
+                    Thread.sleep(50);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        });
+
+        Set<String> trackingRequests = new HashSet<>(Set.of(track));
+        Thread trackingResultsThread = new Thread(() -> {
+            while (!trackingRequests.isEmpty()) {
+                try {
+                    List<String> toRemove = new ArrayList<>();
+                    for(String id : trackingRequests) {
+                        if (TrackingResponseSubscriber.trackingStatuses.containsKey(id)) {
+                            toRemove.add(id);
+                            aggregatedResults.getTrack().put(id, TrackingResponseSubscriber.trackingStatuses.get(id));
+                        }
+                    }
+                    toRemove.forEach(trackingRequests::remove);
+                    Thread.sleep(50);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        });
+
+        Set<String> shipmentsRequests = new HashSet<>(Set.of(shipments));
+        Thread shipmentsResultsThread = new Thread(() -> {
+            while (!shipmentsRequests.isEmpty()) {
+                try {
+                    List<String> toRemove = new ArrayList<>();
+                    for(String id : shipmentsRequests) {
+                        if (ShipmentsResponseSubscriber.shipments.containsKey(id)) {
+                            toRemove.add(id);
+                            aggregatedResults.getShipments().put(id, ShipmentsResponseSubscriber.shipments.get(id));
+                        }
+                    }
+                    toRemove.forEach(shipmentsRequests::remove);
+                    Thread.sleep(50);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        });
+
+        pricingResultsThread.start();
+        trackingResultsThread.start();
+        shipmentsResultsThread.start();
+
+        try {
+            pricingResultsThread.join();
+            trackingResultsThread.join();
+            shipmentsResultsThread.join();
+        } catch (InterruptedException e) {
+            this.logger.error("Error processing response" + e);
+        }
+
+        return aggregatedResults;
     }
 }

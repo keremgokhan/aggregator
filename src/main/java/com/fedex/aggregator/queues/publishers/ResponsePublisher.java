@@ -1,4 +1,4 @@
-package com.fedex.aggregator.queues;
+package com.fedex.aggregator.queues.publishers;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,7 +25,7 @@ public class ResponsePublisher<T> {
         TRACK_RESPONSES("track/responses"),
         SHIPMENTS_RESPONSES("shipments/responses");
 
-        private final String value;
+        public final String value;
 
         topic(String value) {
             this.value = value;
