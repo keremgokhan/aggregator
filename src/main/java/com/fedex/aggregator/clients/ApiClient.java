@@ -45,7 +45,7 @@ public class ApiClient {
         return this.get("/shipments", ids, Shipments.class);
     }
 
-    private <T> Mono<T> get(String uri, List<String> queryParams, Class<T> responseType) {
+    public <T> Mono<T> get(String uri, List<String> queryParams, Class<T> responseType) {
         UriSpec<RequestBodySpec> uriSpec = client.method(HttpMethod.GET);
         RequestBodySpec bodySpec = uriSpec.uri(uriBuilder -> uriBuilder.path(uri).queryParam("q", queryParams).build())
                 .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)

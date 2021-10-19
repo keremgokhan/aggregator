@@ -8,7 +8,11 @@
     "123456891": "COLLECTING"
   },
   "shipments": {
-    "109347263": ["box", "box", "pallet"],
+    "109347263": [
+      "box",
+      "box",
+      "pallet"
+    ],
     "123456891": null
   }
 }

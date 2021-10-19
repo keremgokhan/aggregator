@@ -9,7 +9,7 @@ import reactor.core.publisher.Mono;
 
 import java.util.List;
 
-public class SimpleAggregator implements Aggregator{
+public class SimpleAggregator implements Aggregator {
     private final ApiClient apiClient;
 
     public SimpleAggregator(ApiClient apiClient) {
