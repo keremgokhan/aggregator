@@ -21,8 +21,8 @@ import java.util.List;
 public class ApiClient {
     public static final String DEFAULT_HOST = "http://127.0.0.1";
     public static final String DEFAULT_PORT = "8080";
-    public static final int RETRY_MAX_ATTEMPTS = 3;
-    public static final int RETRY_IN_MILLISECONDS = 100;
+    public static final int RETRY_MAX_ATTEMPTS = 2;
+    public static final int RETRY_IN_MILLISECONDS = 500;
     private final WebClient client;
 
     public ApiClient() {

@@ -2,62 +2,60 @@ package com.fedex.aggregator.queues;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.data.redis.core.SetOperations;
+import org.springframework.data.redis.core.ZSetOperations;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
 
 public class RequestsQueue {
-    private final Logger logger = LoggerFactory.getLogger(RequestsQueue.class);
-
     public static final int MAX_REQUEST_QUEUE_SIZE = 5;
-    private final SetOperations<String, String> setOperations;
+    public final static int TIMEOUT_IN_MILLIS = 5000;
+    private final Logger logger = LoggerFactory.getLogger(RequestsQueue.class);
+    private final ZSetOperations<String, String> setOperations;
 
-    public RequestsQueue(SetOperations<String, String> setOperations) {
+    public RequestsQueue(ZSetOperations<String, String> setOperations) {
         this.setOperations = setOperations;
     }
 
-    public static HashMap<String, Long> lastUpdated = new HashMap<>();
-
-    public Long getLastUpdated(name queueName) {
-        return lastUpdated.get(queueName.value);
-    }
-
-    public void clearLastUpdated(name queueName) {
-        lastUpdated.put(queueName.value, null);
-    }
-
     public void storeRequest(name queueName, String id) {
-        logger.info("Queue name: " + queueName.value + ", value to push: " + id);
-        this.setOperations.add(queueName.value, id);
-        lastUpdated.put(queueName.value, System.currentTimeMillis());
-    }
-
-    public void storeRequests(name queueName, String... ids) {
-        this.setOperations.add(queueName.value, ids);
+        if (this.setOperations.score(queueName.toString(), id) == null) {
+            this.setOperations.add(queueName.toString(), id, System.currentTimeMillis());
+            logger.info("Queue name: " + queueName + ", request to push: " + id);
+        }
     }
 
     public int getQueueSize(name queueName) {
-        Long size = this.setOperations.size(queueName.value);
+        Long size = this.setOperations.size(queueName.toString());
         return size == null ? 0 : size.intValue();
     }
 
-    public Set<String> getCurrentItems(name queueName) {
-        return this.setOperations.members(queueName.value);
-    }
-
     public List<String> removeItems(name queueName, int count) {
-        return this.setOperations.pop(queueName.value, count);
+        Set<String> itemsToRemove = this.setOperations.range(queueName.toString(), 0, count);
+        if (itemsToRemove == null || itemsToRemove.size() == 0) {
+            return new ArrayList<>();
+        }
+        Long removedCount = this.setOperations.removeRange(queueName.toString(), 0, count);
+        if (removedCount == null) {
+            return new ArrayList<>();
+        }
+        logger.info("Queue name: " + queueName + ", removed items: " + removedCount);
+        return new ArrayList<>(itemsToRemove);
     }
 
     public List<String> removeAllItems(name queueName) {
-        Long size = this.setOperations.size(queueName.value);
-        if (size == null) {
+        return this.removeItems(queueName, MAX_REQUEST_QUEUE_SIZE);
+    }
+
+    public List<String> removeTimedOutItems(name queueName) {
+        long endInMillis = System.currentTimeMillis() - TIMEOUT_IN_MILLIS;
+        long startInMillis = endInMillis - 6000000;
+        Set<String> outdated = this.setOperations.rangeByScore(queueName.toString(), startInMillis, endInMillis);
+        if (outdated == null || outdated.size() == 0) {
             return new ArrayList<>();
         }
-        return this.setOperations.pop(queueName.value, size);
+        logger.info("Queue name: " + queueName + ", queue timeout");
+        return this.removeAllItems(queueName);
     }
 
     public enum name {
@@ -69,6 +67,11 @@ public class RequestsQueue {
 
         name(String value) {
             this.value = value;
+        }
+
+        @Override
+        public String toString() {
+            return value;
         }
     }
 }

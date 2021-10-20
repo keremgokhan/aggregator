@@ -7,8 +7,8 @@ import com.fedex.aggregator.clients.ApiClient;
 import com.fedex.aggregator.models.AggregatedResults;
 import com.fedex.aggregator.queues.RequestsQueue;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.SetOperations;
 import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -24,7 +24,10 @@ public class AggregationController {
     private Aggregator simpleAggregator;
 
     @Resource(name = "redisTemplate")
-    private SetOperations<String, String> setOperations;
+    private ZSetOperations<String, String> setOperations;
+
+    @Resource(name = "redisTemplate")
+    private ValueOperations<String, String> valueOperations;
 
     @Resource(name = "redisTemplate")
     private RedisTemplate<String, Object> publisherOperations;

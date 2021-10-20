@@ -1,14 +1,13 @@
 package com.fedex.aggregator.tasks;
 
-import com.fedex.aggregator.aggregators.Aggregator;
 import com.fedex.aggregator.aggregators.QueueAggregator;
 import com.fedex.aggregator.clients.ApiClient;
 import com.fedex.aggregator.queues.RequestsQueue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.SetOperations;
 import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -28,10 +27,13 @@ public class RequestCacheTimeoutTask {
     private QueueAggregator queueAggregator;
 
     @Resource(name = "redisTemplate")
-    private SetOperations<String, String> setOperations;
+    private ZSetOperations<String, String> setOperations;
 
     @Resource(name = "redisTemplate")
     private RedisTemplate<String, Object> publisherOperations;
+
+    @Resource(name = "redisTemplate")
+    private ValueOperations<String, String> valueOperations;
 
     public RequestCacheTimeoutTask() {
     }
@@ -48,7 +50,7 @@ public class RequestCacheTimeoutTask {
         this.queueAggregator = new QueueAggregator(this.requestsQueue, this.apiClient, publisherOperations);
     }
 
-    @Scheduled(fixedRate = 100)
+    @Scheduled(fixedRate = 500)
     public void timeoutOldQueues() {
         cleanUpCaches(RequestsQueue.name.PRICING_REQUESTS);
         cleanUpCaches(RequestsQueue.name.TRACK_REQUESTS);
@@ -57,17 +59,9 @@ public class RequestCacheTimeoutTask {
 
     private void cleanUpCaches(RequestsQueue.name queueName) {
         new Thread(() -> {
-            long currentTimeInMillis = System.currentTimeMillis();
-            Long queueLastUpdate = this.requestsQueue.getLastUpdated(queueName);
-            if (queueLastUpdate != null) {
-                if (queueLastUpdate != 0 && currentTimeInMillis - queueLastUpdate > 5000) {
-                    List<String> removedRequests = this.requestsQueue.removeAllItems(queueName);
-                    if (removedRequests.size() > 0) {
-                        logger.info(queueName.value + " request cache cleaned up.");
-                        this.queueAggregator.makeRequestAndPublishResponse(queueName, removedRequests);
-                        this.requestsQueue.clearLastUpdated(queueName);
-                    }
-                }
+            List<String> removedRequests = this.requestsQueue.removeTimedOutItems(queueName);
+            if (removedRequests != null && removedRequests.size() > 0) {
+                this.queueAggregator.makeRequestAndPublishResponse(queueName, removedRequests);
             }
         }).start();
     }

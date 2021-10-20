@@ -13,12 +13,10 @@ import java.util.Map;
 
 @Service
 public class TrackingResponseSubscriber implements MessageListener {
-    private final Logger logger = LoggerFactory.getLogger(TrackingResponseSubscriber.class);
-
-    private final GenericJackson2JsonRedisSerializer serializer;
-
     public static TrackingStatuses trackingStatuses = new TrackingStatuses();
     public static Map<String, Long> lastUpdated = new HashMap<>();
+    private final Logger logger = LoggerFactory.getLogger(TrackingResponseSubscriber.class);
+    private final GenericJackson2JsonRedisSerializer serializer;
 
     public TrackingResponseSubscriber(GenericJackson2JsonRedisSerializer serializer) {
         this.serializer = serializer;

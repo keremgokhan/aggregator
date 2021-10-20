@@ -8,18 +8,15 @@ import org.springframework.data.redis.connection.MessageListener;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
 import org.springframework.stereotype.Service;
 
-
 import java.util.HashMap;
 import java.util.Map;
 
 @Service
 public class PricesResponseSubscriber implements MessageListener {
-    private final Logger logger = LoggerFactory.getLogger(PricesResponseSubscriber.class);
-
-    private final GenericJackson2JsonRedisSerializer serializer;
-
     public static Prices prices = new Prices();
     public static Map<String, Long> lastUpdated = new HashMap<>();
+    private final Logger logger = LoggerFactory.getLogger(PricesResponseSubscriber.class);
+    private final GenericJackson2JsonRedisSerializer serializer;
 
     public PricesResponseSubscriber(GenericJackson2JsonRedisSerializer serializer) {
         this.serializer = serializer;

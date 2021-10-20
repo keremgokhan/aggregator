@@ -44,11 +44,9 @@ public class QueueAggregator implements Aggregator {
             logger.info("Queue size after push to " + queueName + ": " + this.requestsQueue.getQueueSize(queueName));
 
             if (this.requestsQueue.getQueueSize(queueName) >= RequestsQueue.MAX_REQUEST_QUEUE_SIZE) {
-                List<String> idsToRequest = this.requestsQueue.removeItems(queueName, RequestsQueue.MAX_REQUEST_QUEUE_SIZE);
+                List<String> idsToRequest = this.requestsQueue.removeAllItems(queueName);
                 logger.info("Queue size after removing items from " + queueName + ": " + this.requestsQueue.getQueueSize(queueName));
-                new Thread(() -> {
-                    makeRequestAndPublishResponse(queueName, idsToRequest);
-                }).start();
+                new Thread(() -> makeRequestAndPublishResponse(queueName, idsToRequest)).start();
             }
         }
     }
@@ -68,20 +66,15 @@ public class QueueAggregator implements Aggregator {
 
     private <T> void blockMonoAndPublishResponse(ResponsePublisher.topic messageTopic, Mono<T> requestMono) {
         T response = requestMono.block();
-        ResponsePublisher<T> responsePublisher = new ResponsePublisher<T>(this.redisTemplate, messageTopic);
+        ResponsePublisher<T> responsePublisher = new ResponsePublisher<>(this.redisTemplate, messageTopic);
         responsePublisher.publish(response);
     }
 
+    @SuppressWarnings("BusyWait")
     public AggregatedResults aggregate(String[] pricing, String[] track, String[] shipments) {
-        new Thread(() -> {
-            aggregateRequests(RequestsQueue.name.PRICING_REQUESTS, pricing);
-        }).start();
-        new Thread(() -> {
-            aggregateRequests(RequestsQueue.name.TRACK_REQUESTS, track);
-        }).start();
-        new Thread(() -> {
-            aggregateRequests(RequestsQueue.name.SHIPMENTS_REQUESTS, shipments);
-        }).start();
+        new Thread(() -> aggregateRequests(RequestsQueue.name.PRICING_REQUESTS, pricing)).start();
+        new Thread(() -> aggregateRequests(RequestsQueue.name.TRACK_REQUESTS, track)).start();
+        new Thread(() -> aggregateRequests(RequestsQueue.name.SHIPMENTS_REQUESTS, shipments)).start();
 
         AggregatedResults aggregatedResults = new AggregatedResults();
         aggregatedResults.setPricing(new Prices());
@@ -93,7 +86,7 @@ public class QueueAggregator implements Aggregator {
             while (!pricingRequests.isEmpty()) {
                 try {
                     List<String> toRemove = new ArrayList<>();
-                    for(String cc : pricingRequests) {
+                    for (String cc : pricingRequests) {
                         if (PricesResponseSubscriber.prices.containsKey(cc)) {
                             toRemove.add(cc);
                             aggregatedResults.getPricing().put(cc, PricesResponseSubscriber.prices.get(cc));
@@ -112,7 +105,7 @@ public class QueueAggregator implements Aggregator {
             while (!trackingRequests.isEmpty()) {
                 try {
                     List<String> toRemove = new ArrayList<>();
-                    for(String id : trackingRequests) {
+                    for (String id : trackingRequests) {
                         if (TrackingResponseSubscriber.trackingStatuses.containsKey(id)) {
                             toRemove.add(id);
                             aggregatedResults.getTrack().put(id, TrackingResponseSubscriber.trackingStatuses.get(id));
@@ -131,7 +124,7 @@ public class QueueAggregator implements Aggregator {
             while (!shipmentsRequests.isEmpty()) {
                 try {
                     List<String> toRemove = new ArrayList<>();
-                    for(String id : shipmentsRequests) {
+                    for (String id : shipmentsRequests) {
                         if (ShipmentsResponseSubscriber.shipments.containsKey(id)) {
                             toRemove.add(id);
                             aggregatedResults.getShipments().put(id, ShipmentsResponseSubscriber.shipments.get(id));

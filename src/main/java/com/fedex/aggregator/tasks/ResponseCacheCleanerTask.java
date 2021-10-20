@@ -3,17 +3,17 @@ package com.fedex.aggregator.tasks;
 import com.fedex.aggregator.queues.subscribers.PricesResponseSubscriber;
 import com.fedex.aggregator.queues.subscribers.ShipmentsResponseSubscriber;
 import com.fedex.aggregator.queues.subscribers.TrackingResponseSubscriber;
-import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
 
 @Component
 public class ResponseCacheCleanerTask {
     private static final Logger logger = LoggerFactory.getLogger(ResponseCacheCleanerTask.class);
 
-    private static final int CACHE_TIMEOUT_IN_MILLIS = 5000;
-    private static final int LAST_UPDATED_TIMEOUT_IN_MILLIS = 10000;
+    private static final int CACHE_TIMEOUT_IN_MILLIS = 1000;
+    private static final int LAST_UPDATED_TIMEOUT_IN_MILLIS = 3000;
 
     @Scheduled(fixedRate = 1000)
     public void reportCurrentTime() {
