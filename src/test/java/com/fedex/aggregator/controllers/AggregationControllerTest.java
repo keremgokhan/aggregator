@@ -1,6 +1,7 @@
 package com.fedex.aggregator.controllers;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fedex.aggregator.aggregators.QueueAggregator;
 import com.fedex.aggregator.aggregators.SimpleAggregator;
 import com.fedex.aggregator.models.AggregatedResults;
 import org.junit.jupiter.api.Test;
@@ -32,23 +33,42 @@ class AggregationControllerTest {
     private AggregationController aggregationController;
 
     @Test
-    void contextLoads() throws IOException {
+    void contextLoads() {
         assertNotNull(aggregationController);
     }
 
     @Test
-    void givenValidParams_whenAggregate_thenReturn200() throws Exception {
+    void givenValidParams_whenQueryAggregate_thenReturn200() throws Exception {
 
         AggregatedResults aggregatedResults = objectMapper.readValue(new ClassPathResource("models/aggregatedResultsSample.json").getFile(), AggregatedResults.class);
-        SimpleAggregator mockedSimpleAggregator = mock(SimpleAggregator.class);
-        when(mockedSimpleAggregator.aggregate(any(), any(), any())).thenReturn(aggregatedResults);
-        aggregationController.setAggregator(mockedSimpleAggregator);
+        QueueAggregator mockedQueueAggregator = mock(QueueAggregator.class);
+        when(mockedQueueAggregator.aggregate(any(), any(), any())).thenReturn(aggregatedResults);
+        aggregationController.setAggregator(mockedQueueAggregator);
 
         String[] prices = {"NL", "CN"};
         String[] track = {"109347263", "123456891"};
         String[] shipments = {"109347263", "123456891"};
         mockMvc.perform(
                 get("/aggregation")
+                        .param("pricing", prices)
+                        .param("track", track)
+                        .param("shipments", shipments)
+        ).andExpect(status().isOk());
+    }
+
+    @Test
+    void givenValidParams_whenSimpleAggregate_thenReturn200() throws Exception {
+
+        AggregatedResults aggregatedResults = objectMapper.readValue(new ClassPathResource("models/aggregatedResultsSample.json").getFile(), AggregatedResults.class);
+        SimpleAggregator mockedSimpleAggregator = mock(SimpleAggregator.class);
+        when(mockedSimpleAggregator.aggregate(any(), any(), any())).thenReturn(aggregatedResults);
+        aggregationController.setSimpleAggregator(mockedSimpleAggregator);
+
+        String[] prices = {"NL", "CN"};
+        String[] track = {"109347263", "123456891"};
+        String[] shipments = {"109347263", "123456891"};
+        mockMvc.perform(
+                get("/aggregation/simple")
                         .param("pricing", prices)
                         .param("track", track)
                         .param("shipments", shipments)
