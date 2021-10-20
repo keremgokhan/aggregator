@@ -33,7 +33,7 @@ public class QueueAggregator implements Aggregator {
         this.redisTemplate = redisTemplate;
     }
 
-    public void aggregateRequests(RequestsQueue.name queueName, String[] idsArray) {
+    private void aggregateRequests(RequestsQueue.name queueName, String[] idsArray) {
         Set<String> ids = Set.of(idsArray);
         if (ids.size() == 0) {
             return;
